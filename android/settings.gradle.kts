@@ -10,6 +10,8 @@ pluginManagement {
 
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
+    rootProject.buildFileName = "build.gradle.kts"
+
     repositories {
         google()
         mavenCentral()

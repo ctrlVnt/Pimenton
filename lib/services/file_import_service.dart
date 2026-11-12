@@ -8,17 +8,16 @@ import 'storage_service.dart';
 class FileImportService {
   /// Prompts user to pick .json or .paprikarecipes files and processes them into the target book.
   static Future<int> pickAndImportRecipes(String bookId) async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    List<PlatformFile> result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json', 'paprikarecipes', 'paprikarecipe', 'zip'],
-      allowMultiple: true,
     );
 
-    if (result == null || result.files.isEmpty) return 0;
+    if (result == null || result.isEmpty) return 0;
 
     int importedCount = 0;
 
-    for (var file in result.files) {
+    for (var file in result) {
       if (file.path == null) continue;
       final fileObj = File(file.path!);
       final extension = file.extension?.toLowerCase() ?? '';
