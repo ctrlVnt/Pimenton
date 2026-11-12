@@ -16,18 +16,6 @@ A modern **Flutter** application built with **Material 3** for managing, organiz
 
 ---
 
-## 🛠️ Built With
-
-- **[Flutter](https://flutter.dev)** - Cross-platform UI framework
-- **[webview_flutter](https://pub.dev/packages/webview_flutter)** - In-app web browsing and script execution
-- **[html](https://pub.dev/packages/html)** & **[http](https://pub.dev/packages/http)** - Web scraping & OpenGraph / JSON-LD parsing
-- **[archive](https://pub.dev/packages/archive)** - Decompressing gzip and zip files (`.paprikarecipes`)
-- **[file_picker](https://pub.dev/packages/file_picker)** - Native system file selector
-- **[share_plus](https://pub.dev/packages/share_plus)** - Cross-platform sharing capabilities
-- **[shared_preferences](https://pub.dev/packages/shared_preferences)** - Local data persistence
-
----
-
 ## 🚀 Getting Started
 
 ### Prerequisites
