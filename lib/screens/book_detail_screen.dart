@@ -5,7 +5,6 @@ import '../services/file_import_service.dart';
 import '../services/storage_service.dart';
 import 'recipe_detail_screen.dart';
 import 'recipe_edit_screen.dart';
-import 'social_import_dialog.dart';
 import 'web_import_screen.dart';
 
 class BookDetailScreen extends StatefulWidget {
@@ -57,14 +56,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       ),
     );
     if (result == true) _loadRecipes();
-  }
-
-  void _openSocialImport() async {
-    await showDialog(
-      context: context,
-      builder: (context) => SocialImportDialog(bookId: widget.book.id),
-    );
-    _loadRecipes();
   }
 
   void _importFiles() async {
@@ -134,21 +125,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                   onTap: () {
                     Navigator.pop(context);
                     _openWebImport();
-                  },
-                ),
-                ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-                    child: Icon(
-                      Icons.link,
-                      color: Theme.of(context).colorScheme.onTertiaryContainer,
-                    ),
-                  ),
-                  title: const Text('Import Social Link'),
-                  subtitle: const Text('Paste link from Instagram, TikTok, Facebook'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _openSocialImport();
                   },
                 ),
                 ListTile(
