@@ -18,6 +18,8 @@ dependencies:
   http: ^1.2.0
   html: ^0.15.4
   webview_flutter: ^4.7.0
+  url_launcher: ^6.1.0  # Added for opening URLs
+  material_ui: any
 
 dev_dependencies:
   flutter_test:

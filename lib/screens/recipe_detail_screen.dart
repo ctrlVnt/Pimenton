@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/recipe.dart';
 import '../services/sharing_service.dart';
 import '../services/storage_service.dart';
@@ -149,6 +150,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     if (confirm == true) {
       await StorageService.instance.deleteRecipe(_currentRecipe.id);
       if (mounted) Navigator.pop(context, true);
+    }
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched) {
+      debugPrint('Impossibile aprire $url');
     }
   }
 
@@ -401,6 +413,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     SelectableText(
                       _currentRecipe.sourceUrl,
                       style: const TextStyle(color: Colors.blue),
+                      onTap: () => _launchUrl(_currentRecipe.sourceUrl),
                     ),
                   ],
                 ],
