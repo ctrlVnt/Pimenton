@@ -1,8 +1,12 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import '../models/recipe_book.dart';
+import '../services/recipe_parser_service.dart';
 import '../services/sharing_service.dart';
 import '../services/storage_service.dart';
 import 'book_detail_screen.dart';
+import 'recipe_edit_screen.dart';
+import 'web_import_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -12,6 +16,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const _platform = MethodChannel('com.example.pimenton/share');
+
   List<RecipeBook> _books = [];
   bool _isLoading = true;
 
@@ -19,6 +25,172 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadBooks();
+    _initShareIntentHandler();
+  }
+
+  void _initShareIntentHandler() {
+    _platform.setMethodCallHandler(_handleNativeMethodCall);
+    _checkSharedText();
+  }
+
+  Future<void> _handleNativeMethodCall(MethodCall call) async {
+    if (call.method == 'onSharedTextReceived') {
+      final String? text = call.arguments as String?;
+      if (text != null && text.isNotEmpty) {
+        _processSharedText(text);
+      }
+    }
+  }
+
+  Future<void> _checkSharedText() async {
+    try {
+      final String? text = await _platform.invokeMethod('getSharedText');
+      if (text != null && text.isNotEmpty) {
+        _processSharedText(text);
+      }
+    } on PlatformException catch (e) {
+      debugPrint("Failed to get shared text: ${e.message}");
+    }
+  }
+
+  void _processSharedText(String text) {
+    final regExp = RegExp(r'https?://[^\s]+');
+    final match = regExp.firstMatch(text);
+    final url = match?.group(0) ?? text.trim();
+
+    if (url.isEmpty) return;
+
+    _showBookSelectionDialog(url);
+  }
+
+  void _showBookSelectionDialog(String url) async {
+    final books = await StorageService.instance.getBooks();
+    if (books.isEmpty) return;
+
+    String selectedBookId = books.first.id;
+    bool isImporting = false;
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              title: const Text('Import Shared Recipe'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Shared URL:',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    url,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.blue),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Select Recipe Book:',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedBookId,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    items: books.map((b) {
+                      return DropdownMenuItem(
+                        value: b.id,
+                        child: Text(b.name),
+                      );
+                    }).toList(),
+                    onChanged: isImporting
+                        ? null
+                        : (val) {
+                            if (val != null) {
+                              setDialogState(() {
+                                selectedBookId = val;
+                              });
+                            }
+                          },
+                  ),
+                  if (isImporting) ...[
+                    const SizedBox(height: 20),
+                    const Center(
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 8),
+                          Text('Scraping recipe...'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: isImporting
+                  ? []
+                  : [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogCtx),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: () async {
+                          setDialogState(() {
+                            isImporting = true;
+                          });
+
+                          final recipe = await RecipeParserService.fetchAndParseUrl(url, selectedBookId);
+
+                          if (!mounted) return;
+                          Navigator.pop(dialogCtx);
+
+                          if (recipe != null) {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => RecipeEditScreen(
+                                  bookId: selectedBookId,
+                                  initialRecipe: recipe,
+                                ),
+                              ),
+                            );
+                            _loadBooks();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Could not automatically scrape recipe. Opening web import...'),
+                              ),
+                            );
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => WebImportScreen(
+                                  bookId: selectedBookId,
+                                  initialUrl: url,
+                                ),
+                              ),
+                            );
+                            _loadBooks();
+                          }
+                        },
+                        child: const Text('Import Recipe'),
+                      ),
+                    ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _loadBooks() async {
