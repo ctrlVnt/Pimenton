@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:material_ui/material_ui.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/recipe.dart';
 import '../services/storage_service.dart';
 
@@ -29,6 +31,7 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
 
   late List<TextEditingController> _ingredientControllers;
   late List<TextEditingController> _instructionControllers;
+  late TextEditingController _imageUrlController;
 
   @override
   void initState() {
@@ -42,6 +45,8 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
     _imageUrl = r?.imageUrl ?? '';
     _sourceUrl = r?.sourceUrl ?? '';
 
+    _imageUrlController = TextEditingController(text: _imageUrl);
+
     _ingredientControllers = (r?.ingredients.isNotEmpty == true)
         ? r!.ingredients.map((i) => TextEditingController(text: i)).toList()
         : [TextEditingController()];
@@ -53,14 +58,27 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
 
   @override
   void dispose() {
+    _imageUrlController.dispose();
     for (var c in _ingredientControllers) c.dispose();
     for (var c in _instructionControllers) c.dispose();
     super.dispose();
   }
 
+  Future<void> _pickImageFromGallery() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _imageUrl = pickedFile.path;
+        _imageUrlController.text = pickedFile.path;
+      });
+    }
+  }
+
   void _saveRecipe() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
+    _imageUrl = _imageUrlController.text.trim();
 
     final ingredients = _ingredientControllers
         .map((c) => c.text.trim())
@@ -167,13 +185,24 @@ class _RecipeEditScreenState extends State<RecipeEditScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              initialValue: _imageUrl,
-              decoration: const InputDecoration(
-                labelText: 'Image URL',
-                border: OutlineInputBorder(),
-              ),
-              onSaved: (v) => _imageUrl = v ?? '',
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _imageUrlController,
+                    decoration: const InputDecoration(
+                      labelText: 'Image URL or Path',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  onPressed: _pickImageFromGallery,
+                  icon: const Icon(Icons.photo_library),
+                  tooltip: 'Pick from Gallery',
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             TextFormField(

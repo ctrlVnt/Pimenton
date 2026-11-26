@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/recipe.dart';
 import '../models/recipe_book.dart';
 import '../services/file_import_service.dart';
@@ -206,12 +207,13 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                               leading: recipe.imageUrl.isNotEmpty
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: Image.network(
-                                        recipe.imageUrl,
+                                      child: CachedNetworkImage(
+                                        imageUrl: recipe.imageUrl,
                                         width: 50,
                                         height: 50,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => const Icon(Icons.fastfood),
+                                        errorWidget: (_, __, ___) =>
+                                            const Icon(Icons.fastfood),
                                       ),
                                     )
                                   : const CircleAvatar(child: Icon(Icons.restaurant)),

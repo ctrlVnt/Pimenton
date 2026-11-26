@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/recipe.dart';
 import '../services/sharing_service.dart';
@@ -260,12 +261,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (_currentRecipe.imageUrl.isNotEmpty)
-              Image.network(
-                _currentRecipe.imageUrl,
+              CachedNetworkImage(
+                imageUrl: _currentRecipe.imageUrl,
                 width: double.infinity,
                 height: 250,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                errorWidget: (_, __, ___) => const SizedBox.shrink(),
               ),
             Padding(
               padding: const EdgeInsets.all(16.0),

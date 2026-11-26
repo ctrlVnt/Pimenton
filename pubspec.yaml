@@ -21,6 +21,8 @@ dependencies:
   url_launcher: ^6.1.0  # Added for opening URLs
   material_ui: any
   flutter_launcher_icons: ^0.14.4
+  cached_network_image: ^4.0.7
+  image_picker: ^1.2.4
 
 dev_dependencies:
   flutter_test:
