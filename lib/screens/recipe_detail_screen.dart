@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -20,12 +21,73 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   late double _baseServings;
   late double _currentServings;
 
+  // Timer state
+  Timer? _countdownTimer;
+  int _remainingSeconds = 0;
+  int _totalTimerSeconds = 0;
+  bool _isTimerRunning = false;
+  final TextEditingController _timerMinutesController = TextEditingController(text: '5');
+
   @override
   void initState() {
     super.initState();
     _currentRecipe = widget.recipe;
     _baseServings = _parseBaseServings(_currentRecipe.servings);
     _currentServings = _baseServings;
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    _timerMinutesController.dispose();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    final minutes = int.tryParse(_timerMinutesController.text) ?? 0;
+    if (minutes <= 0) return;
+
+    final totalSeconds = minutes * 60;
+    setState(() {
+      _totalTimerSeconds = totalSeconds;
+      _remainingSeconds = totalSeconds;
+      _isTimerRunning = true;
+    });
+
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        setState(() {
+          _remainingSeconds--;
+        });
+      } else {
+        timer.cancel();
+        setState(() {
+          _isTimerRunning = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Timer finished!')),
+          );
+        }
+      }
+    });
+  }
+
+  void _pauseTimer() {
+    _countdownTimer?.cancel();
+    setState(() {
+      _isTimerRunning = false;
+    });
+  }
+
+  void _resetTimer() {
+    _countdownTimer?.cancel();
+    setState(() {
+      _isTimerRunning = false;
+      _remainingSeconds = 0;
+      _totalTimerSeconds = 0;
+    });
   }
 
   double _parseBaseServings(String servingsStr) {
@@ -234,6 +296,116 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     );
   }
 
+  Widget _buildTimerSection() {
+    final minutes = (_remainingSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_remainingSeconds % 60).toString().padLeft(2, '0');
+
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceVariant,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.timer, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Kitchen Timer',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const Divider(),
+            const SizedBox(height: 8),
+            if (_remainingSeconds > 0 || _isTimerRunning) ...[
+              Center(
+                child: Text(
+                  '$minutes:$seconds',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_isTimerRunning)
+                    FilledButton.icon(
+                      onPressed: _pauseTimer,
+                      icon: const Icon(Icons.pause),
+                      label: const Text('Pause'),
+                    )
+                  else
+                    FilledButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _isTimerRunning = true;
+                        });
+                        _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+                          if (_remainingSeconds > 0) {
+                            setState(() {
+                              _remainingSeconds--;
+                            });
+                          } else {
+                            timer.cancel();
+                            setState(() {
+                              _isTimerRunning = false;
+                            });
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Timer finished!')),
+                              );
+                            }
+                          }
+                        });
+                      },
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Resume'),
+                    ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: _resetTimer,
+                    icon: const Icon(Icons.stop),
+                    label: const Text('Reset'),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _timerMinutesController,
+                      decoration: const InputDecoration(
+                        labelText: 'Minutes',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    onPressed: _startTimer,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Start'),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ratio = _currentServings / _baseServings;
@@ -257,170 +429,175 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_currentRecipe.imageUrl.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: _currentRecipe.imageUrl,
-                width: double.infinity,
-                height: 250,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _currentRecipe.title,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  if (_currentRecipe.description.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_currentRecipe.imageUrl.isNotEmpty)
+                CachedNetworkImage(
+                  imageUrl: _currentRecipe.imageUrl,
+                  width: double.infinity,
+                  height: 250,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      _currentRecipe.description,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      _currentRecipe.title,
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
-                  ],
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (_currentRecipe.prepTime.isNotEmpty)
-                        Chip(
-                          avatar: const Icon(Icons.timer),
-                          label: Text('Prep: ${_currentRecipe.prepTime}'),
-                        ),
-                      if (_currentRecipe.cookTime.isNotEmpty)
-                        Chip(
-                          avatar: const Icon(Icons.soup_kitchen),
-                          label: Text('Cook: ${_currentRecipe.cookTime}'),
-                        ),
-                      _buildServingsSelector(),
+                    if (_currentRecipe.description.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _currentRecipe.description,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                     ],
-                  ),
-                  const SizedBox(height: 20),
-                  Card(
-                    elevation: 0,
-                    color: Theme.of(context).colorScheme.surfaceVariant,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Ingredients',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                              ),
-                              if (ratio != 1.0)
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (_currentRecipe.prepTime.isNotEmpty)
+                          Chip(
+                            avatar: const Icon(Icons.timer),
+                            label: Text('Prep: ${_currentRecipe.prepTime}'),
+                          ),
+                        if (_currentRecipe.cookTime.isNotEmpty)
+                          Chip(
+                            avatar: const Icon(Icons.soup_kitchen),
+                            label: Text('Cook: ${_currentRecipe.cookTime}'),
+                          ),
+                        _buildServingsSelector(),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    _buildTimerSection(),
+                    const SizedBox(height: 16),
+                    Card(
+                      elevation: 0,
+                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
                                 Text(
-                                  'Scaled (${_formatNumber(_currentServings)} servings)',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.primary,
+                                  'Ingredients',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                         fontWeight: FontWeight.bold,
                                       ),
                                 ),
-                            ],
-                          ),
-                          const Divider(),
-                          if (_currentRecipe.ingredients.isEmpty)
-                            const Text('No ingredients specified.'),
-                          ..._currentRecipe.ingredients.map(
-                            (item) {
-                              final scaledItem = _scaleIngredient(item, ratio);
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                    Expanded(
-                                      child: Text(
-                                        scaledItem,
-                                        style: TextStyle(
-                                          fontWeight: ratio != 1.0 ? FontWeight.w500 : FontWeight.normal,
+                                if (ratio != 1.0)
+                                  Text(
+                                    'Scaled (${_formatNumber(_currentServings)} servings)',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.primary,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    elevation: 0,
-                    color: Theme.of(context).colorScheme.surfaceVariant,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Instructions',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          const Divider(),
-                          if (_currentRecipe.instructions.isEmpty)
-                            const Text('No instructions specified.'),
-                          ..._currentRecipe.instructions.asMap().entries.map(
-                                (entry) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 6.0),
+                                  ),
+                              ],
+                            ),
+                            const Divider(),
+                            if (_currentRecipe.ingredients.isEmpty)
+                              const Text('No ingredients specified.'),
+                            ..._currentRecipe.ingredients.map(
+                              (item) {
+                                final scaledItem = _scaleIngredient(item, ratio);
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
                                   child: Row(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      CircleAvatar(
-                                        radius: 12,
-                                        child: Text(
-                                          '${entry.key + 1}',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
+                                      const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
                                       Expanded(
-                                        child: Text(entry.value),
+                                        child: Text(
+                                          scaledItem,
+                                          style: TextStyle(
+                                            fontWeight: ratio != 1.0 ? FontWeight.w500 : FontWeight.normal,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
-                                ),
-                              ),
-                        ],
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  if (_currentRecipe.sourceUrl.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    Text(
-                      'Source:',
-                      style: Theme.of(context).textTheme.titleSmall,
+                    Card(
+                      elevation: 0,
+                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Instructions',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const Divider(),
+                            if (_currentRecipe.instructions.isEmpty)
+                              const Text('No instructions specified.'),
+                            ..._currentRecipe.instructions.asMap().entries.map(
+                                  (entry) => Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 12,
+                                          child: Text(
+                                            '${entry.key + 1}',
+                                            style: const TextStyle(fontSize: 12),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(entry.value),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                          ],
+                        ),
+                      ),
                     ),
-                    SelectableText(
-                      _currentRecipe.sourceUrl,
-                      style: const TextStyle(color: Colors.blue),
-                      onTap: () => _launchUrl(_currentRecipe.sourceUrl),
-                    ),
+                    if (_currentRecipe.sourceUrl.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      OutlinedButton.icon(
+                        onPressed: () => _launchUrl(_currentRecipe.sourceUrl),
+                        icon: const Icon(Icons.open_in_new),
+                        label: const Text('View Original Source'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          alignment: Alignment.center,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
